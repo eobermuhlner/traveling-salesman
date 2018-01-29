@@ -27,6 +27,10 @@ import ch.obermuhlner.salesman.strategies.RepeatSalesman;
 import ch.obermuhlner.salesman.util.MathUtil;
 import ch.obermuhlner.salesman.util.ThreadInterruptedException;
 import ch.obermuhlner.salesman.util.ThreadUtil;
+import ch.obermuhlner.salesman.viewer.coordinate.CartesianScreenCoordinateCalculator;
+import ch.obermuhlner.salesman.viewer.coordinate.EarthCoordinateCalculator;
+import ch.obermuhlner.salesman.viewer.coordinate.ScreenCoordinateCalculator;
+import ch.obermuhlner.salesman.viewer.coordinate.StandardSphereCoordinateCalculator;
 import javafx.application.Application;
 import javafx.application.Platform;
 import javafx.beans.binding.Bindings;
@@ -64,7 +68,14 @@ import javafx.stage.Stage;
 
 public class SalesmanViewer extends Application {
 
-	private static final Color VERY_DARK_GRAY = new Color(0.3, 0.3, 0.3, 1.0);
+	private static final Color BACKGROUND_COLOR = Color.BLACK;
+	private static final Color BEST_SOLUTION_COLOR = Color.WHITE;
+	private static final Color GOOD_SOLUTION_COLOR = Color.ORANGE;
+	private static final Color MEDIUM_SOLUTION_COLOR = Color.DARKRED;
+	private static final Color WORST_SOLUTION_COLOR = Color.TRANSPARENT;
+	private static final Color DISCARDED_SOLUTION_COLOR = new Color(0.3, 0.3, 0.3, 1.0);
+	private static final Color GRID_COLOR = new Color(0.0, 0.7, 0.5, 0.1);
+	
 	private static final long SLEEP_TIME = 1;
 
 	private enum SalesmanStrategy {
@@ -143,7 +154,7 @@ public class SalesmanViewer extends Application {
         mainBorderPane.setCenter(stackPane);
         
         Rectangle blackRectangle = new Rectangle(CANVAS_WIDTH, CANVAS_HEIGHT);
-        blackRectangle.setFill(Color.BLACK);
+        blackRectangle.setFill(BACKGROUND_COLOR);
 		stackPane.getChildren().add(blackRectangle);
         
         backgroundImageView = new ImageView();
@@ -152,12 +163,10 @@ public class SalesmanViewer extends Application {
         Canvas mapCanvas = new Canvas(CANVAS_WIDTH, CANVAS_HEIGHT);
         stackPane.getChildren().add(mapCanvas);
         mapGc = mapCanvas.getGraphicsContext2D();
-        drawMap(Collections.emptyList(), Collections.emptyList());
         
         Canvas citiesCanvas = new Canvas(CANVAS_WIDTH, CANVAS_HEIGHT);
         stackPane.getChildren().add(citiesCanvas);
         citiesGc = citiesCanvas.getGraphicsContext2D();
-        drawCities(Collections.emptyList());
         
         descriptionTextArea = new TextArea();
         descriptionTextArea.setEditable(false);
@@ -167,6 +176,9 @@ public class SalesmanViewer extends Application {
         
 		primaryStage.setScene(scene);
         primaryStage.show();
+        
+        drawMap(Collections.emptyList(), Collections.emptyList());
+        drawCities(Collections.emptyList());
 	}
 	
 	private Node createEditor() {
@@ -412,7 +424,7 @@ public class SalesmanViewer extends Application {
 	private ScreenCoordinateCalculator createScreenCoordinateCalculator(MapType mapType) {
 		switch (mapType) {
 		case Cartesian:
-			return new CartesianScreenCoordinateCalculator();
+			return new CartesianScreenCoordinateCalculator(CANVAS_WIDTH, CANVAS_HEIGHT);
 		case Earth:
 			return new EarthCoordinateCalculator(CANVAS_WIDTH, CANVAS_HEIGHT);
 		case Mars:
@@ -535,7 +547,7 @@ public class SalesmanViewer extends Application {
 		if (discarded != null) {
 			int offset = improved != null ? improved.size() : 0;
 			for (int i = 0; i < discarded.size(); i++) {
-				drawSolution(mapGc, discarded.get(i), i + offset, VERY_DARK_GRAY);
+				drawSolution(mapGc, discarded.get(i), i + offset, DISCARDED_SOLUTION_COLOR);
 			}
 		}
 		
@@ -552,18 +564,32 @@ public class SalesmanViewer extends Application {
 	private synchronized void drawCities(List<City> cities) {
 		citiesGc.clearRect(0, 0, citiesGc.getCanvas().getWidth(), citiesGc.getCanvas().getHeight());
 
+		citiesGc.setStroke(GRID_COLOR);
+		double gridStepX = (screenCoordinateCalculator.getEndX() - screenCoordinateCalculator.getStartX()) / 10.0;
+		double gridStepY = (screenCoordinateCalculator.getEndY() - screenCoordinateCalculator.getStartY()) / 10.0;
+		for (double gridX = screenCoordinateCalculator.getStartX(); gridX < screenCoordinateCalculator.getEndX() + gridStepX/2; gridX += gridStepX) {
+			for (double gridY = screenCoordinateCalculator.getStartY(); gridY < screenCoordinateCalculator.getEndY() + gridStepY/2; gridY += gridStepY) {
+				citiesGc.strokeLine(
+						screenCoordinateCalculator.toScreenX(gridX), screenCoordinateCalculator.toScreenY(screenCoordinateCalculator.getStartY()),
+						screenCoordinateCalculator.toScreenX(gridX), screenCoordinateCalculator.toScreenY(screenCoordinateCalculator.getEndY()));
+				citiesGc.strokeLine(
+						screenCoordinateCalculator.toScreenX(screenCoordinateCalculator.getStartX()), screenCoordinateCalculator.toScreenY(gridY),
+						screenCoordinateCalculator.toScreenX(screenCoordinateCalculator.getEndX()), screenCoordinateCalculator.toScreenY(gridY));
+			}
+		}
+		
 		citiesGc.setStroke(Color.LIGHTBLUE);
 		// draw cities
 		for (City city : cities) {
-			double x = screenCoordinateCalculator.toScreenX(city);
-			double y = screenCoordinateCalculator.toScreenY(city);
+			double x = screenCoordinateCalculator.toScreenX(city.x);
+			double y = screenCoordinateCalculator.toScreenY(city.y);
 			
 			double size = 10;
 			citiesGc.setLineWidth(2);
-			strokeOvalWithShadow(citiesGc, x-size/2, y-size/2, size, size, Color.BLACK);
+			strokeOvalWithShadow(citiesGc, x-size/2, y-size/2, size, size, BACKGROUND_COLOR);
 			
 			citiesGc.setLineWidth(1);
-			strokeTextWithShadow(citiesGc, city.name, x+5, y, Color.BLACK);
+			strokeTextWithShadow(citiesGc, city.name, x+5, y, BACKGROUND_COLOR);
 		}
 	}
 
@@ -604,26 +630,28 @@ public class SalesmanViewer extends Application {
 		for (City city : solution) {
 			if (firstCity == null) {
 				firstCity = city;
-				fromX = screenCoordinateCalculator.toScreenX(city) + offset;
-				fromY = screenCoordinateCalculator.toScreenY(city);
+				fromX = screenCoordinateCalculator.toScreenX(city.x) + offset;
+				fromY = screenCoordinateCalculator.toScreenY(city.y);
 			} else {
-				double toX = screenCoordinateCalculator.toScreenX(city) + offset;
-				double toY = screenCoordinateCalculator.toScreenY(city);
+				double toX = screenCoordinateCalculator.toScreenX(city.x) + offset;
+				double toY = screenCoordinateCalculator.toScreenY(city.y);
 				gc.strokeLine(fromX, fromY, toX, toY);
 				fromX = toX;
 				fromY = toY;
 			}
 		}
-		double toX = screenCoordinateCalculator.toScreenX(firstCity) + offset;
-		double toY = screenCoordinateCalculator.toScreenY(firstCity);
-		gc.strokeLine(fromX, fromY, toX, toY);
+		if (firstCity != null) {
+			double toX = screenCoordinateCalculator.toScreenX(firstCity.x) + offset;
+			double toY = screenCoordinateCalculator.toScreenY(firstCity.y);
+			gc.strokeLine(fromX, fromY, toX, toY);
+		}
 	}
 	
 	private Color getColor(int index, int count) {
-		Color bestColor = Color.WHITE;
-		Color goodColor = Color.ORANGE;
-		Color mediumColor = Color.DARKRED;
-		Color worstColor = Color.TRANSPARENT;
+		Color bestColor = BEST_SOLUTION_COLOR;
+		Color goodColor = GOOD_SOLUTION_COLOR;
+		Color mediumColor = MEDIUM_SOLUTION_COLOR;
+		Color worstColor = WORST_SOLUTION_COLOR;
 	
 		if (index == 0) {
 			return bestColor;
