@@ -69,12 +69,13 @@ import javafx.stage.Stage;
 public class SalesmanViewer extends Application {
 
 	private static final Color BACKGROUND_COLOR = Color.BLACK;
-	private static final Color BEST_SOLUTION_COLOR = Color.WHITE;
+	private static final Color GRID_COLOR = new Color(0.0, 0.7, 0.5, 0.05);
+	private static final Color CITY_COLOR = Color.LIGHTBLUE;
+	private static final Color BEST_SOLUTION_COLOR = Color.YELLOW.brighter().brighter();
 	private static final Color GOOD_SOLUTION_COLOR = Color.ORANGE;
 	private static final Color MEDIUM_SOLUTION_COLOR = Color.DARKRED;
 	private static final Color WORST_SOLUTION_COLOR = Color.TRANSPARENT;
 	private static final Color DISCARDED_SOLUTION_COLOR = new Color(0.3, 0.3, 0.3, 1.0);
-	private static final Color GRID_COLOR = new Color(0.0, 0.7, 0.5, 0.1);
 	
 	private static final long SLEEP_TIME = 1;
 
@@ -578,7 +579,7 @@ public class SalesmanViewer extends Application {
 			}
 		}
 		
-		citiesGc.setStroke(Color.LIGHTBLUE);
+		citiesGc.setStroke(CITY_COLOR);
 		// draw cities
 		for (City city : cities) {
 			double x = screenCoordinateCalculator.toScreenX(city.x);
@@ -648,21 +649,16 @@ public class SalesmanViewer extends Application {
 	}
 	
 	private Color getColor(int index, int count) {
-		Color bestColor = BEST_SOLUTION_COLOR;
-		Color goodColor = GOOD_SOLUTION_COLOR;
-		Color mediumColor = MEDIUM_SOLUTION_COLOR;
-		Color worstColor = WORST_SOLUTION_COLOR;
-	
 		if (index == 0) {
-			return bestColor;
+			return BEST_SOLUTION_COLOR;
 		}
 		
 		int half = count / 2;
 		if (index <= half) {
-			return goodColor.interpolate(mediumColor, ((double) index) / half);
+			return GOOD_SOLUTION_COLOR.interpolate(MEDIUM_SOLUTION_COLOR, ((double) index) / half);
 		} else {
 			int otherHalf = count - half;
-			return mediumColor.interpolate(worstColor, ((double) index - otherHalf) / otherHalf);
+			return MEDIUM_SOLUTION_COLOR.interpolate(WORST_SOLUTION_COLOR, ((double) index - otherHalf) / otherHalf);
 		}
 	}
 
