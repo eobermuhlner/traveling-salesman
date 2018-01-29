@@ -12,7 +12,11 @@ public class StandardSphereCoordinateCalculator implements ScreenCoordinateCalcu
 	
 	@Override
 	public double toScreenX(double x) {
-		return x / 360 * width;
+		double xx = x + 180;
+		if (xx > 360) {
+			xx -= 360;
+		}
+		return xx / 360 * width;
 	}
 	
 	@Override
