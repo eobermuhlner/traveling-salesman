@@ -71,6 +71,7 @@ public class SalesmanViewer extends Application {
 	private static final Color BACKGROUND_COLOR = Color.BLACK;
 	private static final Color GRID_COLOR = new Color(0.0, 0.7, 0.5, 0.05);
 	private static final Color CITY_COLOR = Color.LIGHTBLUE;
+	private static final Color SHADOW_COLOR = new Color(0.0, 0.0, 0.3, 1.0);
 	private static final Color BEST_SOLUTION_COLOR = Color.YELLOW.brighter().brighter();
 	private static final Color GOOD_SOLUTION_COLOR = Color.ORANGE;
 	private static final Color MEDIUM_SOLUTION_COLOR = Color.DARKRED;
@@ -592,10 +593,10 @@ public class SalesmanViewer extends Application {
 			
 			double size = 10;
 			citiesGc.setLineWidth(2);
-			strokeOvalWithShadow(citiesGc, x-size/2, y-size/2, size, size, BACKGROUND_COLOR);
+			strokeOvalWithShadow(citiesGc, x-size/2, y-size/2, size, size, SHADOW_COLOR);
 			
 			citiesGc.setLineWidth(1);
-			strokeTextWithShadow(citiesGc, city.name, x+5, y, BACKGROUND_COLOR);
+			strokeTextWithShadow(citiesGc, city.name, x+5, y, SHADOW_COLOR);
 		}
 	}
 
