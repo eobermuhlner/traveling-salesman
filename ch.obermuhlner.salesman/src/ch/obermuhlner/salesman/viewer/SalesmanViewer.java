@@ -110,6 +110,8 @@ public class SalesmanViewer extends Application {
 	private Button cancelButton;
 
 	private ImageView backgroundImageView;
+	private ScreenCoordinateCalculator screenCoordinateCalculator;
+
 	private TextArea descriptionTextArea;
 
 	private List<City> cities;
@@ -199,6 +201,8 @@ public class SalesmanViewer extends Application {
         		backgroundImageView.setImage(new Image("file:" + newValue.name() + ".jpg"));
         	}
         	
+        	screenCoordinateCalculator = createScreenCoordinateCalculator(newValue);
+        	
         	generateCities();
         });
         
@@ -240,6 +244,8 @@ public class SalesmanViewer extends Application {
 
         // initial state
         
+    	screenCoordinateCalculator = createScreenCoordinateCalculator(mapTypeProperty.get());
+
         generateCities();
 
     	updateSalesmanStrategy(salesmanStrategyProperty.get(), geneticControls, stepCountTextField, descriptionTextArea);
@@ -516,8 +522,8 @@ public class SalesmanViewer extends Application {
 
 		// draw cities
 		for (City city : cities) {
-			double x = toScreenX(city);
-			double y = toScreenY(city);
+			double x = screenCoordinateCalculator.toScreenX(city);
+			double y = screenCoordinateCalculator.toScreenY(city);
 			
 			double size = 10;
 			gc.setStroke(Color.LIGHTBLUE);
@@ -550,18 +556,18 @@ public class SalesmanViewer extends Application {
 		for (City city : solution) {
 			if (firstCity == null) {
 				firstCity = city;
-				fromX = toScreenX(city) + offset;
-				fromY = toScreenY(city);
+				fromX = screenCoordinateCalculator.toScreenX(city) + offset;
+				fromY = screenCoordinateCalculator.toScreenY(city);
 			} else {
-				double toX = toScreenX(city) + offset;
-				double toY = toScreenY(city);
+				double toX = screenCoordinateCalculator.toScreenX(city) + offset;
+				double toY = screenCoordinateCalculator.toScreenY(city);
 				gc.strokeLine(fromX, fromY, toX, toY);
 				fromX = toX;
 				fromY = toY;
 			}
 		}
-		double toX = toScreenX(firstCity) + offset;
-		double toY = toScreenY(firstCity);
+		double toX = screenCoordinateCalculator.toScreenX(firstCity) + offset;
+		double toY = screenCoordinateCalculator.toScreenY(firstCity);
 		gc.strokeLine(fromX, fromY, toX, toY);
 	}
 	
@@ -582,35 +588,6 @@ public class SalesmanViewer extends Application {
 			int otherHalf = count - half;
 			return mediumColor.interpolate(worstColor, ((double) index - otherHalf) / otherHalf);
 		}
-	}
-
-	private double toScreenX(City city) {
-		MapType mapType = mapTypeProperty.get();
-		switch (mapType) {
-		case Cartesian:
-			return city.x;
-		case Earth:
-			return (city.x + 180) / 360 * CANVAS_WIDTH;
-		case Moon:
-		case Mars:
-			return city.x / 360 * CANVAS_WIDTH;
-		}
-		
-		throw new IllegalArgumentException("Unknown MapType: " + mapType);
-	}
-
-	private double toScreenY(City city) {
-		MapType mapType = mapTypeProperty.get();
-		switch (mapType) {
-		case Cartesian:
-			return city.y;
-		case Earth:
-		case Moon:
-		case Mars:
-			return (180 - (city.y + 90)) / 180 * CANVAS_HEIGHT;
-		}
-		
-		throw new IllegalArgumentException("Unknown MapType: " + mapType);
 	}
 
 	private List<List<City>> deepCopy(List<List<City>> list) {
