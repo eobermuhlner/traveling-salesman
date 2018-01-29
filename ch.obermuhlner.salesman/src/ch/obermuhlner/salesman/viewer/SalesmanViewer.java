@@ -193,11 +193,11 @@ public class SalesmanViewer extends Application {
         
         mapTypeComboBox = addComboBox(gridPane, rowIndex++, "MapType", mapTypeProperty, Arrays.asList(MapType.values()));
         
-        cityCountTextField = addTextField(gridPane, rowIndex++, "Cities", INTEGER_FORMAT, cityCountProperty);
+        cityCountTextField = addTextField(gridPane, rowIndex++, "Number of Cities", INTEGER_FORMAT, cityCountProperty);
         TextField possibleSolutionCountTextField = addTextField(gridPane, rowIndex++, "Possible Solutions", INTEGER_FORMAT, possibleSolutionCountProperty);
         possibleSolutionCountTextField.setEditable(false);
 
-        createMapButton = new Button("Create Map");
+        createMapButton = new Button("Random Cities");
     	gridPane.add(createMapButton, 0, rowIndex++);
 
     	addComboBox(gridPane, rowIndex++, "Salesman Strategy", salesmanStrategyProperty, Arrays.asList(SalesmanStrategy.values()));
