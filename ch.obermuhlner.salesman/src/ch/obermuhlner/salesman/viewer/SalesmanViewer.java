@@ -180,7 +180,7 @@ public class SalesmanViewer extends Application {
         primaryStage.show();
         
         drawMap(Collections.emptyList(), Collections.emptyList());
-        drawCities(Collections.emptyList());
+        drawCities(cities);
 	}
 	
 	private Node createEditor() {
