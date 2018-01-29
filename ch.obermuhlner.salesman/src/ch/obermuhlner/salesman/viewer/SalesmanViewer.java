@@ -14,6 +14,7 @@ import java.util.stream.Collectors;
 import ch.obermuhlner.salesman.distance.CartesianDistanceCalculator;
 import ch.obermuhlner.salesman.distance.DistanceCalculator;
 import ch.obermuhlner.salesman.distance.SphericalDistanceCalculator;
+import ch.obermuhlner.salesman.model.CitiesLoader;
 import ch.obermuhlner.salesman.model.City;
 import ch.obermuhlner.salesman.model.Salesman;
 import ch.obermuhlner.salesman.model.SalesmanListener;
@@ -50,9 +51,12 @@ import javafx.scene.control.CheckBox;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.TextField;
 import javafx.scene.image.Image;
+import javafx.scene.image.ImageView;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.GridPane;
+import javafx.scene.layout.StackPane;
 import javafx.scene.paint.Color;
+import javafx.scene.shape.Rectangle;
 import javafx.scene.text.Text;
 import javafx.stage.Stage;
 
@@ -69,7 +73,9 @@ public class SalesmanViewer extends Application {
 
 	private enum MapType {
 		Cartesian,
-		Earth
+		Earth,
+		Moon,
+		Mars
 	}
 
 	private static final int CANVAS_WIDTH = 1024;
@@ -102,7 +108,7 @@ public class SalesmanViewer extends Application {
 	private Button startButton;
 	private Button cancelButton;
 
-	private Image backgroundImage;
+	private ImageView backgroundImageView;
 
 	private List<City> cities;
 	private List<List<City>> improvedSolutions;
@@ -123,8 +129,18 @@ public class SalesmanViewer extends Application {
         BorderPane mainBorderPane = new BorderPane();
         root.getChildren().add(mainBorderPane);
 
+        StackPane stackPane = new StackPane();
+        mainBorderPane.setCenter(stackPane);
+        
+        Rectangle blackRectangle = new Rectangle(CANVAS_WIDTH, CANVAS_HEIGHT);
+        blackRectangle.setFill(Color.BLACK);
+		stackPane.getChildren().add(blackRectangle);
+        
+        backgroundImageView = new ImageView();
+        stackPane.getChildren().add(backgroundImageView);
+        
         Canvas mapCanvas = new Canvas(CANVAS_WIDTH, CANVAS_HEIGHT);
-        mainBorderPane.setCenter(mapCanvas);
+        stackPane.getChildren().add(mapCanvas);
         mapGc = mapCanvas.getGraphicsContext2D();
         drawMap(mapGc, Collections.emptyList(), Collections.emptyList(), Collections.emptyList());
         
@@ -172,9 +188,9 @@ public class SalesmanViewer extends Application {
 
         mapTypeProperty.addListener((observable, oldValue, newValue) -> {
         	if (newValue == MapType.Cartesian) {
-        		backgroundImage = null;
+        		backgroundImageView.setImage(null);
         	} else {
-                backgroundImage = new Image("file:" + newValue.name() + ".jpg");
+        		backgroundImageView.setImage(new Image("file:" + newValue.name() + ".jpg"));
         	}
 
         	generateCities();
@@ -326,6 +342,8 @@ public class SalesmanViewer extends Application {
 		case Cartesian:
 			return new CartesianDistanceCalculator();
 		case Earth:
+		case Moon:
+		case Mars:
 			return SphericalDistanceCalculator.earthKilometers();
 		}
 		
@@ -385,11 +403,17 @@ public class SalesmanViewer extends Application {
 	private void generateCities() {
 		int count = cityCountProperty.get();
 		
-		cities = new ArrayList<>();
-		Random random = new Random();
-		for (int i = 0; i < count; i++) {
-			cities.add(createCity(mapTypeProperty.get(), random, i));
+		MapType mapType = mapTypeProperty.get();
+		if (mapType == MapType.Cartesian) {
+			cities = new ArrayList<>();
+			Random random = new Random();
+			for (int i = 0; i < count; i++) {
+				cities.add(createCity(mapTypeProperty.get(), random, i));
+			}
+		} else {
+			cities = CitiesLoader.load(mapType.name() + ".csv", new Random(), count);
 		}
+		
 		
 		drawMap(mapGc, Arrays.asList(), Collections.emptyList(), cities);
 	}
@@ -399,6 +423,8 @@ public class SalesmanViewer extends Application {
 		case Cartesian:
 			return new City("City" + index, random.nextInt(CANVAS_WIDTH), random.nextInt(CANVAS_HEIGHT));
 		case Earth:
+		case Moon:
+		case Mars:
 			return new City("City" + index, random.nextDouble() * 360 - 180, random.nextDouble() * 180 - 90);
 		}
 
@@ -431,13 +457,9 @@ public class SalesmanViewer extends Application {
 	}
 	
 	private synchronized void drawMap(GraphicsContext gc, List<List<City>> improved, List<List<City>> discarded, List<City> cities) {
-		if (backgroundImage != null) {
-			gc.drawImage(backgroundImage, 0, 0, gc.getCanvas().getWidth(), gc.getCanvas().getHeight());
-		} else {
-			gc.setFill(Color.BLACK);
-			gc.fillRect(0, 0, gc.getCanvas().getWidth(), gc.getCanvas().getHeight());
-		}
-
+//		gc.setFill(Color.BLACK);
+//		gc.fillRect(0, 0, gc.getCanvas().getWidth(), gc.getCanvas().getHeight());
+		gc.clearRect(0, 0, gc.getCanvas().getWidth(), gc.getCanvas().getHeight());
 		
 		if (discarded != null) {
 			int offset = improved != null ? improved.size() : 0;
@@ -532,6 +554,9 @@ public class SalesmanViewer extends Application {
 			return city.x;
 		case Earth:
 			return (city.x + 180) / 360 * CANVAS_WIDTH;
+		case Moon:
+		case Mars:
+			return city.x / 360 * CANVAS_WIDTH;
 		}
 		
 		throw new IllegalArgumentException("Unknown MapType: " + mapType);
@@ -543,7 +568,9 @@ public class SalesmanViewer extends Application {
 		case Cartesian:
 			return city.y;
 		case Earth:
-			return (city.y + 90) / 180 * CANVAS_HEIGHT;
+		case Moon:
+		case Mars:
+			return (180 - (city.y + 90)) / 180 * CANVAS_HEIGHT;
 		}
 		
 		throw new IllegalArgumentException("Unknown MapType: " + mapType);

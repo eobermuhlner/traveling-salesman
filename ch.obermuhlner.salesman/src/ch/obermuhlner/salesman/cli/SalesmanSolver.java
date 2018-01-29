@@ -112,7 +112,7 @@ public class SalesmanSolver {
 	
 	private static void solveWorldProblem() {
 		SalesmanSolver solver = new SalesmanSolver(SphericalDistanceCalculator.earthKilometers());
-		
+
 		solver.add(Cities.BuenosAires.city);
 		solver.add(Cities.Vienna.city);
 		solver.add(Cities.Brasilia.city);
