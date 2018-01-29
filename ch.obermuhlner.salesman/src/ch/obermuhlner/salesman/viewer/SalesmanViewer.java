@@ -107,7 +107,7 @@ public class SalesmanViewer extends Application {
 
 	private BooleanProperty showDiscardedSolutionsProperty = new SimpleBooleanProperty(true);
 
-	private IntegerProperty currentStepCountProperty = new SimpleIntegerProperty(0);
+	private IntegerProperty currentStepProperty = new SimpleIntegerProperty(0);
 	private DoubleProperty currentBestDistanceProperty = new SimpleDoubleProperty(0);
 
 	private ComboBox<MapType> mapTypeComboBox;
@@ -203,7 +203,7 @@ public class SalesmanViewer extends Application {
     	
         addCheckBox(gridPane, rowIndex++, "Show Discarded Solutions", showDiscardedSolutionsProperty);
 
-        TextField currentStepCountTextField = addTextField(gridPane, rowIndex++, "Current Steps", INTEGER_FORMAT, currentStepCountProperty);
+        TextField currentStepCountTextField = addTextField(gridPane, rowIndex++, "Current Steps", INTEGER_FORMAT, currentStepProperty);
         currentStepCountTextField.setEditable(false);
         TextField currentBestDistanceTextField = addTextField(gridPane, rowIndex++, "Current Best Distance", DOUBLE_FORMAT, currentBestDistanceProperty);
         currentBestDistanceTextField.setEditable(false);
@@ -359,7 +359,7 @@ public class SalesmanViewer extends Application {
 			public void improvedSolutions(List<List<City>> improved) {
 				setImprovedSolutions(deepCopy(improved));
 				Platform.runLater(() -> {
-					currentStepCountProperty.set(currentStepCountProperty.get() + 1);
+					incrementCurrentStep();
 					if (!improvedSolutions.isEmpty()) {
 						currentBestDistanceProperty.set(distanceCalculator.distance(improvedSolutions.get(0)));
 					}
@@ -373,14 +373,14 @@ public class SalesmanViewer extends Application {
 				if (showDiscardedSolutionsProperty.get()) {
 					setDiscardedSolutions(deepCopy(discarded));
 					Platform.runLater(() -> {
-						currentStepCountProperty.set(currentStepCountProperty.get() + 1);
+						incrementCurrentStep();
 						drawMap(improvedSolutions, discardedSolutions);
 						clearDiscardedSolutions();
 					});
 					ThreadUtil.sleep(SLEEP_TIME);
 				} else {
 					Platform.runLater(() -> {
-						currentStepCountProperty.set(currentStepCountProperty.get() + 1);
+						incrementCurrentStep();
 					});
 				}
 			}
@@ -390,6 +390,10 @@ public class SalesmanViewer extends Application {
 		salesman = createSalesman(salesmanStrategy, salesmanListener);
 		
 		distanceCalculator = createDistanceCalculator(mapTypeProperty.get());
+	}
+
+	private void incrementCurrentStep() {
+		currentStepProperty.set(currentStepProperty.get() + 1);
 	}
 
 	private DistanceCalculator createDistanceCalculator(MapType mapType) {
@@ -500,7 +504,7 @@ public class SalesmanViewer extends Application {
 	
 	private synchronized void startSimulation(Consumer<List<City>> finishedCallback) {
 		updateSimulationRunning(true);
-		currentStepCountProperty.set(0);
+		currentStepProperty.set(0);
 		currentBestDistanceProperty.set(0);
 		
 		
