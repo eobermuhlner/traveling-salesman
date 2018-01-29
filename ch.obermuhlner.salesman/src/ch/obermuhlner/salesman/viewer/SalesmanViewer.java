@@ -57,6 +57,7 @@ import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.StackPane;
 import javafx.scene.paint.Color;
+import javafx.scene.paint.Paint;
 import javafx.scene.shape.Rectangle;
 import javafx.scene.text.Text;
 import javafx.stage.Stage;
@@ -64,6 +65,7 @@ import javafx.stage.Stage;
 public class SalesmanViewer extends Application {
 
 	private static final Color VERY_DARK_GRAY = new Color(0.3, 0.3, 0.3, 1.0);
+	private static final long SLEEP_TIME = 1;
 
 	private enum SalesmanStrategy {
 		Random,
@@ -83,11 +85,13 @@ public class SalesmanViewer extends Application {
 	private static final int CANVAS_HEIGHT = 512;
 
 	private static final DecimalFormat INTEGER_FORMAT = new DecimalFormat("##0");
+	private static final DecimalFormat DOUBLE_FORMAT = new DecimalFormat("##0.000");
 
 	private Salesman salesman;
 	private DistanceCalculator distanceCalculator;
 	
 	private GraphicsContext mapGc;
+	private GraphicsContext citiesGc;
 
 	private ObjectProperty<MapType> mapTypeProperty = new SimpleObjectProperty<>(MapType.Cartesian);
 	private IntegerProperty cityCountProperty = new SimpleIntegerProperty(10);
@@ -103,6 +107,9 @@ public class SalesmanViewer extends Application {
 
 	private BooleanProperty showDiscardedSolutionsProperty = new SimpleBooleanProperty(true);
 
+	private IntegerProperty currentStepCountProperty = new SimpleIntegerProperty(0);
+	private DoubleProperty currentBestDistanceProperty = new SimpleDoubleProperty(0);
+
 	private ComboBox<MapType> mapTypeComboBox;
 	private TextField cityCountTextField;
 	private Button createMapButton;
@@ -117,7 +124,6 @@ public class SalesmanViewer extends Application {
 	private List<City> cities;
 	private List<List<City>> improvedSolutions;
 	private List<List<City>> discardedSolutions;
-	private int stepCount = 0;
 	
 	private Thread backgroundThread;
 	
@@ -146,7 +152,12 @@ public class SalesmanViewer extends Application {
         Canvas mapCanvas = new Canvas(CANVAS_WIDTH, CANVAS_HEIGHT);
         stackPane.getChildren().add(mapCanvas);
         mapGc = mapCanvas.getGraphicsContext2D();
-        drawMap(mapGc, Collections.emptyList(), Collections.emptyList(), Collections.emptyList());
+        drawMap(Collections.emptyList(), Collections.emptyList());
+        
+        Canvas citiesCanvas = new Canvas(CANVAS_WIDTH, CANVAS_HEIGHT);
+        stackPane.getChildren().add(citiesCanvas);
+        citiesGc = citiesCanvas.getGraphicsContext2D();
+        drawCities(Collections.emptyList());
         
         descriptionTextArea = new TextArea();
         descriptionTextArea.setEditable(false);
@@ -170,7 +181,7 @@ public class SalesmanViewer extends Application {
         
         cityCountTextField = addTextField(gridPane, rowIndex++, "Cities", INTEGER_FORMAT, cityCountProperty);
         TextField possibleSolutionCountTextField = addTextField(gridPane, rowIndex++, "Possible Solutions", INTEGER_FORMAT, possibleSolutionCountProperty);
-        possibleSolutionCountTextField.setDisable(true);
+        possibleSolutionCountTextField.setEditable(false);
 
         createMapButton = new Button("Create Map");
     	gridPane.add(createMapButton, 0, rowIndex++);
@@ -191,6 +202,11 @@ public class SalesmanViewer extends Application {
     	gridPane.add(cancelButton, 0, rowIndex++);
     	
         addCheckBox(gridPane, rowIndex++, "Show Discarded Solutions", showDiscardedSolutionsProperty);
+
+        TextField currentStepCountTextField = addTextField(gridPane, rowIndex++, "Current Steps", INTEGER_FORMAT, currentStepCountProperty);
+        currentStepCountTextField.setEditable(false);
+        TextField currentBestDistanceTextField = addTextField(gridPane, rowIndex++, "Current Best Distance", DOUBLE_FORMAT, currentBestDistanceProperty);
+        currentBestDistanceTextField.setEditable(false);
 
         // listeners and events
 
@@ -217,7 +233,10 @@ public class SalesmanViewer extends Application {
         		Platform.runLater(() -> {
         			setImprovedSolutions(Arrays.asList(best));
     				Platform.runLater(() -> {
-    					drawMap(mapGc, improvedSolutions, Collections.emptyList(), cities);
+    					if (!improvedSolutions.isEmpty()) {
+    						currentBestDistanceProperty.set(distanceCalculator.distance(improvedSolutions.get(0)));
+    					}
+    					drawMap(improvedSolutions, Collections.emptyList());
     				});
         		});
         	});
@@ -340,9 +359,13 @@ public class SalesmanViewer extends Application {
 			public void improvedSolutions(List<List<City>> improved) {
 				setImprovedSolutions(deepCopy(improved));
 				Platform.runLater(() -> {
-					drawMap(mapGc, improvedSolutions, discardedSolutions, cities);
+					currentStepCountProperty.set(currentStepCountProperty.get() + 1);
+					if (!improvedSolutions.isEmpty()) {
+						currentBestDistanceProperty.set(distanceCalculator.distance(improvedSolutions.get(0)));
+					}
+					drawMap(improvedSolutions, discardedSolutions);
 				});
-				ThreadUtil.sleep(1);
+				ThreadUtil.sleep(SLEEP_TIME);
 			}
 			
 			@Override
@@ -350,12 +373,15 @@ public class SalesmanViewer extends Application {
 				if (showDiscardedSolutionsProperty.get()) {
 					setDiscardedSolutions(deepCopy(discarded));
 					Platform.runLater(() -> {
-						drawMap(mapGc, improvedSolutions, discardedSolutions, cities);
+						currentStepCountProperty.set(currentStepCountProperty.get() + 1);
+						drawMap(improvedSolutions, discardedSolutions);
 						clearDiscardedSolutions();
 					});
-					ThreadUtil.sleep(1);
+					ThreadUtil.sleep(SLEEP_TIME);
 				} else {
-					stepCount++;
+					Platform.runLater(() -> {
+						currentStepCountProperty.set(currentStepCountProperty.get() + 1);
+					});
 				}
 			}
 		};
@@ -431,12 +457,10 @@ public class SalesmanViewer extends Application {
 	
 	private synchronized void setImprovedSolutions(List<List<City>> improved) {
 		improvedSolutions = improved;
-		stepCount++;
 	}
 	
 	private synchronized void setDiscardedSolutions(List<List<City>> discarded) {
 		discardedSolutions = discarded;
-		stepCount++;
 	}
 
 	private synchronized void clearDiscardedSolutions() {
@@ -457,8 +481,8 @@ public class SalesmanViewer extends Application {
 			cities = CitiesLoader.load(mapType.name() + ".csv", new Random(), count);
 		}
 		
-		
-		drawMap(mapGc, Arrays.asList(), Collections.emptyList(), cities);
+		drawMap(Collections.emptyList(), Collections.emptyList());
+        drawCities(cities);
 	}
 
 	private City createCity(MapType mapType, Random random, int index) {
@@ -476,7 +500,9 @@ public class SalesmanViewer extends Application {
 	
 	private synchronized void startSimulation(Consumer<List<City>> finishedCallback) {
 		updateSimulationRunning(true);
-		stepCount = 0;
+		currentStepCountProperty.set(0);
+		currentBestDistanceProperty.set(0);
+		
 		
 		backgroundThread = new Thread(() -> {
 			try {
@@ -499,15 +525,13 @@ public class SalesmanViewer extends Application {
 		}
 	}
 	
-	private synchronized void drawMap(GraphicsContext gc, List<List<City>> improved, List<List<City>> discarded, List<City> cities) {
-//		gc.setFill(Color.BLACK);
-//		gc.fillRect(0, 0, gc.getCanvas().getWidth(), gc.getCanvas().getHeight());
-		gc.clearRect(0, 0, gc.getCanvas().getWidth(), gc.getCanvas().getHeight());
+	private synchronized void drawMap(List<List<City>> improved, List<List<City>> discarded) {
+		mapGc.clearRect(0, 0, mapGc.getCanvas().getWidth(), mapGc.getCanvas().getHeight());
 		
 		if (discarded != null) {
 			int offset = improved != null ? improved.size() : 0;
 			for (int i = 0; i < discarded.size(); i++) {
-				drawSolution(gc, discarded.get(i), i + offset, VERY_DARK_GRAY);
+				drawSolution(mapGc, discarded.get(i), i + offset, VERY_DARK_GRAY);
 			}
 		}
 		
@@ -516,35 +540,55 @@ public class SalesmanViewer extends Application {
 			for (int i = improved.size() - 1; i >= 0; i--) {
 				Color color = getColor(i, improved.size());
 
-				drawSolution(gc, improved.get(i), i, color);
+				drawSolution(mapGc, improved.get(i), i, color);
 			}
 		}
+	}
+	
+	private synchronized void drawCities(List<City> cities) {
+		citiesGc.clearRect(0, 0, citiesGc.getCanvas().getWidth(), citiesGc.getCanvas().getHeight());
 
+		citiesGc.setStroke(Color.LIGHTBLUE);
 		// draw cities
 		for (City city : cities) {
 			double x = screenCoordinateCalculator.toScreenX(city);
 			double y = screenCoordinateCalculator.toScreenY(city);
 			
 			double size = 10;
-			gc.setStroke(Color.LIGHTBLUE);
-			gc.setLineWidth(2);
-			gc.strokeOval(x-size/2, y-size/2, size, size);
+			citiesGc.setLineWidth(2);
+			strokeOvalWithShadow(citiesGc, x-size/2, y-size/2, size, size, Color.BLACK);
 			
-			gc.setLineWidth(1);
-			gc.strokeText(city.name, x+5, y);
-		}
-
-		// draw texts
-		gc.setLineWidth(1);
-		double fontHeight = gc.getFont().getSize();
-		double textY = fontHeight;
-		gc.strokeText("Step: " + stepCount, 10, textY);
-		textY += fontHeight;
-		if (improvedSolutions != null && !improvedSolutions.isEmpty()) {
-			gc.strokeText("Distance: " + distanceCalculator.distance(improvedSolutions.get(0)), 10, textY);
+			citiesGc.setLineWidth(1);
+			strokeTextWithShadow(citiesGc, city.name, x+5, y, Color.BLACK);
 		}
 	}
 
+	private void strokeOvalWithShadow(GraphicsContext gc, double x, double y, double width, double height, Paint shadow) {
+		Paint originalStroke = gc.getStroke();
+
+		gc.setStroke(shadow);
+		gc.strokeOval(x-1, y-1, width, height);
+		gc.strokeOval(x-1, y+1, width, height);
+		gc.strokeOval(x+1, y+1, width, height);
+		gc.strokeOval(x+1, y-1, width, height);
+
+		gc.setStroke(originalStroke);
+		gc.strokeOval(x, y, width, height);
+	}
+	
+	private void strokeTextWithShadow(GraphicsContext gc, String text, double x, double y, Paint shadow) {
+		Paint originalStroke = gc.getStroke();
+
+		gc.setStroke(shadow);
+		gc.strokeText(text, x-1, y-1);
+		gc.strokeText(text, x-1, y+1);
+		gc.strokeText(text, x+1, y+1);
+		gc.strokeText(text, x+1, y-1);
+
+		gc.setStroke(originalStroke);
+		gc.strokeText(text, x, y);
+	}
+	
 	private void drawSolution(GraphicsContext gc, List<City> solution, int offset, Color color) {
 		gc.setFill(color);
 		gc.setStroke(color);
