@@ -49,6 +49,7 @@ import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.control.Button;
 import javafx.scene.control.CheckBox;
 import javafx.scene.control.ComboBox;
+import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
@@ -109,6 +110,7 @@ public class SalesmanViewer extends Application {
 	private Button cancelButton;
 
 	private ImageView backgroundImageView;
+	private TextArea descriptionTextArea;
 
 	private List<City> cities;
 	private List<List<City>> improvedSolutions;
@@ -143,6 +145,10 @@ public class SalesmanViewer extends Application {
         stackPane.getChildren().add(mapCanvas);
         mapGc = mapCanvas.getGraphicsContext2D();
         drawMap(mapGc, Collections.emptyList(), Collections.emptyList(), Collections.emptyList());
+        
+        descriptionTextArea = new TextArea();
+        descriptionTextArea.setEditable(false);
+        mainBorderPane.setBottom(descriptionTextArea);
         
         mainBorderPane.setLeft(createEditor());
         
@@ -192,7 +198,7 @@ public class SalesmanViewer extends Application {
         	} else {
         		backgroundImageView.setImage(new Image("file:" + newValue.name() + ".jpg"));
         	}
-
+        	
         	generateCities();
         });
         
@@ -218,7 +224,7 @@ public class SalesmanViewer extends Application {
         });
         
         salesmanStrategyProperty.addListener((observable, oldValue, newValue) -> {
-        	updateSalesmanControls(newValue, geneticControls, stepCountTextField);
+        	updateSalesmanStrategy(newValue, geneticControls, stepCountTextField, descriptionTextArea);
         });
         
         cityCountProperty.addListener((observable, oldValue, newValue) -> {
@@ -236,35 +242,52 @@ public class SalesmanViewer extends Application {
         
         generateCities();
 
-    	updateSalesmanControls(salesmanStrategyProperty.get(), geneticControls, stepCountTextField);
-        updateWidgetStates(false);
+    	updateSalesmanStrategy(salesmanStrategyProperty.get(), geneticControls, stepCountTextField, descriptionTextArea);
+        updateSimulationRunning(false);
         
         return gridPane;
 	}
 
-	private void updateSalesmanControls(SalesmanStrategy salesmanStrategy, Collection<Node> geneticControls,
-			TextField stepCountTextField) {
+	private void updateSalesmanStrategy(SalesmanStrategy salesmanStrategy, Collection<Node> geneticControls,
+			TextField stepCountTextField, TextArea descriptionTextArea) {
 		switch (salesmanStrategy) {
 		case Genetic:
 			geneticControls.forEach(node -> node.setDisable(false));
 			stepCountTextField.setDisable(false);
+			descriptionTextArea.setText(
+					"Uses a genetic algorithm to solve the traveling salesman problem.\n"
+					+ "The algorithm maintains a population of best solutions."
+					+ "This population is allowed to have children with a determined mutation rate over several generations."
+					+ "Then the population is culled to the original size, killing the less optimal solutions."
+					+ "This cycle is repeated many times, hopefully finding better and better solutions.\n"
+					+ "Genetic algorithms are not guaranteed to find the optimum solution.");
 			break;
 		case Bruteforce:
 			geneticControls.forEach(node -> node.setDisable(true));
 			stepCountTextField.setDisable(true);
+			descriptionTextArea.setText(
+					"Uses brute force to solve the traveling salesman problem.\n"
+					+ "The brute force algorithm is guaranteed to find the optimum solution,"
+					+ "but can take a long time to find it because the number of possible solutions grows very fast with the number of cities.");
 			break;
 		case Nearest:
 			geneticControls.forEach(node -> node.setDisable(true));
 			stepCountTextField.setDisable(true);
+			descriptionTextArea.setText(
+					"Uses a simple heuristic algorithm to solve the traveling salesman problem by connecting consecutively to the nearest city.\n"
+					+ "Because of its greedy nature the nearest city algorithm is not guaranteed to find the optimum solution but it is very fast.");
 			break;
 		case Random:
 			geneticControls.forEach(node -> node.setDisable(true));
 			stepCountTextField.setDisable(false);
+			descriptionTextArea.setText(
+					"Randomly travels from one city to another to solve the traveling salesman problem."
+					+ "This algorithm is very inefficient and gives no guarantees when it will find a better solution.\n");
 			break;
 		}
 	}
 
-	private void updateWidgetStates(boolean simulationRunning) {
+	private void updateSimulationRunning(boolean simulationRunning) {
 		mapTypeComboBox.setDisable(simulationRunning);
 		cityCountTextField.setDisable(simulationRunning);
 		createMapButton.setDisable(simulationRunning);
@@ -345,6 +368,20 @@ public class SalesmanViewer extends Application {
 		case Moon:
 		case Mars:
 			return SphericalDistanceCalculator.earthKilometers();
+		}
+		
+		throw new IllegalArgumentException("Unknown MapType: " + mapType);
+	}
+
+	private ScreenCoordinateCalculator createScreenCoordinateCalculator(MapType mapType) {
+		switch (mapType) {
+		case Cartesian:
+			return new CartesianScreenCoordinateCalculator();
+		case Earth:
+			return new EarthCoordinateCalculator(CANVAS_WIDTH, CANVAS_HEIGHT);
+		case Mars:
+		case Moon:
+			return new StandardSphereCoordinateCalculator(CANVAS_WIDTH, CANVAS_HEIGHT);
 		}
 		
 		throw new IllegalArgumentException("Unknown MapType: " + mapType);
@@ -432,7 +469,7 @@ public class SalesmanViewer extends Application {
 	}
 	
 	private synchronized void startSimulation(Consumer<List<City>> finishedCallback) {
-		updateWidgetStates(true);
+		updateSimulationRunning(true);
 		stepCount = 0;
 		
 		backgroundThread = new Thread(() -> {
@@ -443,7 +480,7 @@ public class SalesmanViewer extends Application {
 				// ignore
 			} finally {
 				backgroundThread = null;
-				updateWidgetStates(false);
+				updateSimulationRunning(false);
 			}
 		});
 		
