@@ -190,6 +190,8 @@ public class SalesmanViewer extends Application {
         BorderPane.setMargin(gridPane, new Insets(4));
 
         int rowIndex = 0;
+
+        addTitle(gridPane, rowIndex++, "Map");
         
         mapTypeComboBox = addComboBox(gridPane, rowIndex++, "MapType", mapTypeProperty, Arrays.asList(MapType.values()));
         
@@ -198,8 +200,10 @@ public class SalesmanViewer extends Application {
         possibleSolutionCountTextField.setEditable(false);
 
         createMapButton = new Button("Random Cities");
-    	gridPane.add(createMapButton, 0, rowIndex++);
+    	gridPane.add(createMapButton, 1, rowIndex++);
 
+        addTitle(gridPane, rowIndex++, "Strategy");
+        
     	addComboBox(gridPane, rowIndex++, "Salesman Strategy", salesmanStrategyProperty, Arrays.asList(SalesmanStrategy.values()));
     	
     	Collection<Node> geneticControls = new ArrayList<>();
@@ -209,11 +213,13 @@ public class SalesmanViewer extends Application {
     	geneticControls.add(addTextField(gridPane, rowIndex++, "Generations", INTEGER_FORMAT, geneticEvolutionGenerationCountProperty));
         TextField stepCountTextField = addTextField(gridPane, rowIndex++, "Steps", INTEGER_FORMAT, stepCountProperty);
         
+        addTitle(gridPane, rowIndex++, "Simulation");
+        
     	startButton = new Button("Start Simulation");
-    	gridPane.add(startButton, 0, rowIndex++);
+    	gridPane.add(startButton, 1, rowIndex++);
     	
     	cancelButton = new Button("Cancel Simulation");
-    	gridPane.add(cancelButton, 0, rowIndex++);
+    	gridPane.add(cancelButton, 1, rowIndex++);
     	
         addCheckBox(gridPane, rowIndex++, "Show Discarded Solutions", showDiscardedSolutionsProperty);
 
@@ -337,6 +343,13 @@ public class SalesmanViewer extends Application {
 		createMapButton.setDisable(simulationRunning);
 		startButton.setDisable(simulationRunning);
 		cancelButton.setDisable(!simulationRunning);
+	}
+
+	private final <T> void addTitle(GridPane gridPane, int rowIndex, String title) {
+		Text text = new Text(title);
+		text.setStroke(Color.NAVY);
+		
+		gridPane.add(text, 0, rowIndex);
 	}
 
 	private final <T> TextField addTextField(GridPane gridPane, int rowIndex, String label, Format format, Property<T> property) {
